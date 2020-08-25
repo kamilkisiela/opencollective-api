@@ -43,7 +43,7 @@ const RESET = `
 
 `;
 
-describe('20200624145300-split-fees-on-top-transactions', () => {
+describe.skip('20200624145300-split-fees-on-top-transactions', () => {
   before(async () => {
     await sequelize.query(RESET);
     await sequelize.sync();
