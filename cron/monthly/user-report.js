@@ -14,6 +14,7 @@ import ORDER_STATUS from '../../server/constants/order_status';
 import roles from '../../server/constants/roles';
 import { convertToCurrency } from '../../server/lib/currency';
 import emailLib from '../../server/lib/email';
+import { getConsolidatedInvoicePdfs } from '../../server/lib/pdf';
 import { formatArrayToString, formatCurrencyObject } from '../../server/lib/utils';
 import models, { Op } from '../../server/models';
 
@@ -192,6 +193,9 @@ const processBacker = async FromCollectiveId => {
     'DESC',
   ).then(({ collectives }) => collectives);
 
+  // consolidated PDF and attachment stuff goes here
+  const monthlyConsolidatedInvoices = await getConsolidatedInvoicePdfs(backerCollective);
+
   try {
     await Promise.each(subscribers, user => {
       const data = {
@@ -199,7 +203,7 @@ const processBacker = async FromCollectiveId => {
         month,
         fromCollective: backerCollective.info,
         collectives: collectivesWithOrders,
-        manageSubscriptionsUrl: `${config.host.website}/subscriptions`,
+        manageSubscriptionsUrl: `${config.host.website}/recurring-contributions`,
         relatedCollectives: relatedCollectives,
         stats,
         tags: stats.allTags || {},
