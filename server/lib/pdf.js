@@ -91,21 +91,9 @@ export const getConsolidatedInvoicePdfs = async fromCollective => {
   if (['ci', 'test'].includes(config.env)) {
     return;
   }
-  // https://{pdfUrl}/collectives/{fromCollective-User mopsa-mopsa}/{toCollective-Host brusselstogetherasbl}/{start of month 2020-09-01T00:00:00.000Z}/{end of month 2020-09-30T23:59:59.999Z}.pdf
 
   // Get invoices
   const invoices = await createConsolidatedInvoices(fromCollective);
-  // an invoice
-  // {
-  //   HostCollectiveId: 9805,
-  //   FromCollectiveId: 10884,
-  //   slug: '202010.opensourceorg.mopsa-mopsa',
-  //   year: 2020,
-  //   month: 10,
-  //   totalAmount: 57000,
-  //   totalTransactions: 4,
-  //   currency: 'USD'
-  // },
 
   const pdfAttachments = [];
 
@@ -122,34 +110,37 @@ export const getConsolidatedInvoicePdfs = async fromCollective => {
     const toOrgCollectiveSlug = invoiceInfo[1];
     const fromCollectiveSlug = invoiceInfo[2];
 
+    // Get user so we can generate access token
     const fromCollectiveUser = await models.User.findOne({
       where: { CollectiveId: invoice.FromCollectiveId },
     });
 
+    // Call PDF service for the invoice
     const pdfUrl = `${config.host.pdf}/collectives/${fromCollectiveSlug}/${toOrgCollectiveSlug}/${startOfMonth}/${endOfMonth}.pdf`;
     const accessToken = fromCollectiveUser.jwt({}, TOKEN_EXPIRATION_LOGIN);
     const headers = {
       Authorization: `Bearer ${accessToken}`,
     };
 
-    const invoicePdf = await fetchWithTimeout(pdfUrl, { method: 'get', headers, timeoutInMs: 10000 })
+    let invoicePdf;
+    await fetchWithTimeout(pdfUrl, { method: 'get', headers, timeoutInMs: 10000 })
       .then(response => {
         const { status } = response;
         if (status >= 200 && status < 300) {
-          return response.body;
+          invoicePdf = response.body;
         } else {
           logger.warn('Failed to fetch PDF');
-          return null;
+          invoicePdf = null;
         }
       })
       .catch(error => {
         logger.error(`Error fetching PDF: ${error.message}`);
       });
 
+    // Push invoice to attachments if fetch is successful
     if (invoicePdf) {
-      const createdAtString = toIsoDateStr(transaction.createdAt ? new Date(transaction.createdAt) : new Date());
       pdfAttachments.push({
-        filename: `transaction_${collective.slug}_${createdAtString}_${transaction.uuid}.pdf`,
+        filename: `${fromCollectiveSlug}_${toOrgCollectiveSlug}_${startOfMonth}_${endOfMonth}.pdf`,
         content: invoicePdf,
       });
     }

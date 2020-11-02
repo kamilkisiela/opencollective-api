@@ -7,7 +7,7 @@ import path from 'path';
 import Promise from 'bluebird';
 import config from 'config';
 import debugLib from 'debug';
-import { groupBy, pick, uniq } from 'lodash';
+import { groupBy, isEmpty, pick, uniq } from 'lodash';
 import moment from 'moment';
 
 import ORDER_STATUS from '../../server/constants/order_status';
@@ -151,7 +151,6 @@ const processBacker = async FromCollectiveId => {
     return;
   }
 
-  const attachments = [];
   const orders = await models.Order.findAll({
     attributes: ['id', 'CollectiveId', 'totalAmount', 'currency'],
     where: {
@@ -193,7 +192,7 @@ const processBacker = async FromCollectiveId => {
     'DESC',
   ).then(({ collectives }) => collectives);
 
-  // consolidated PDF and attachment stuff goes here
+  // monthlyConsolidatedInvoices is array of attachments
   const monthlyConsolidatedInvoices = await getConsolidatedInvoicePdfs(backerCollective);
 
   try {
@@ -207,13 +206,14 @@ const processBacker = async FromCollectiveId => {
         relatedCollectives: relatedCollectives,
         stats,
         tags: stats.allTags || {},
+        consolidatedPdfs: isEmpty(monthlyConsolidatedInvoices) ? null : true,
       };
       if (data.tags['open source']) {
         data.tags.opensource = true;
       }
       data[backerCollective.type] = true;
       const options = {
-        attachments,
+        attachments: monthlyConsolidatedInvoices,
       };
       return sendEmail(user, data, options);
     });
